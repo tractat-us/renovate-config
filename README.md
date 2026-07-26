@@ -25,9 +25,12 @@ See [Renovate's private-packages docs](https://docs.renovatebot.com/getting-star
 These rules contain no secrets — they're dependency policy — so the preset lives
 here, in the open, where public and private repos alike can reach it.
 
-**Keep it that way.** Anything genuinely private goes in `tractat-us/.github`'s
-own `default.json`, which extends this one and is only reachable from private and
-internal repos.
+**Keep it that way.** Every repo in the org — public, internal and private alike —
+extends this preset directly; there is no second copy. If a rule ever genuinely
+needs to be private, add a *separate* preset in `tractat-us/.github` that extends
+this one, and have only private and internal repos extend that. Never move a
+shared rule back behind the wall: the moment a public repo can't read it,
+Renovate stops opening PRs on that repo entirely.
 
 ## What's in it
 
