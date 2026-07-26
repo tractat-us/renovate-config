@@ -1,0 +1,46 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "tractat-us org-wide Renovate defaults, secret-free and public so that PUBLIC repos can extend them. Repos extend this via \"local>tractat-us/renovate-config\".",
+  "extends": [
+    "config:recommended"
+  ],
+  "platformAutomerge": true,
+  "packageRules": [
+    {
+      "description": "Auto-merge all non-major updates once CI passes; majors stay manual. Requires the extending repo to have a required status check — otherwise this merges ungated.",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest", "lockFileMaintenance"],
+      "automerge": true
+    },
+    {
+      "description": "Skip internal tractat-us packages — they live on GitHub Packages and Renovate cloud has no creds. We publish them ourselves, so manual bumps are fine.",
+      "matchPackageNames": ["us.tractat.**"],
+      "enabled": false
+    },
+    {
+      "description": "Hold Gradle wrapper upgrades for 30 days so AGP/Kotlin compatibility settles before we move.",
+      "matchManagers": ["gradle-wrapper"],
+      "minimumReleaseAge": "30 days"
+    },
+    {
+      "description": "Never auto-merge Compose. A green CI run does not cover layout, so these need a WASM-preview or roborazzi look before they land. Overrides the non-major automerge rule above.",
+      "matchPackageNames": [
+        "/^org\\.jetbrains\\.compose/",
+        "/^androidx\\.compose/",
+        "/^androidx\\.activity:activity-compose$/",
+        "/^org\\.jetbrains\\.androidx\\.navigation:navigation-compose$/",
+        "/^org\\.jetbrains\\.kotlin\\.plugin\\.compose$/"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "AGP majors are disruptive (Kotlin/Compose compat, deprecations). Don't open a PR until someone ticks the box on the Dependency Dashboard.",
+      "matchPackageNames": [
+        "com.android.application",
+        "com.android.library",
+        "com.android.tools.build:gradle"
+      ],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    }
+  ]
+}
