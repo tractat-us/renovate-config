@@ -123,9 +123,9 @@ rule mentioned. The combined branch then took this preset's `automerge: true`,
 and an update meant to wait for dashboard approval would have landed on its own.
 
 Nothing flagged it. The config validated, the rule read correctly, and the
-grouping was only visible in a local dry run (fireworks-compose PR #5145, second
-revision). The fix was to rename the group to `ktlint-runtime` — a name no
-version variable in that catalog uses, which is the only property that matters.
+grouping showed up only in a local dry run of `fireworks-compose`'s catalog. The
+fix was to rename the group to `ktlint-runtime` — a name no version variable in
+that catalog uses, which is the only property that matters.
 
 That collision is worth the fifteen seconds on its own. Every repo extending this
 preset inherits the auto-merge policy above, so a `groupName` that lands on a
