@@ -65,3 +65,69 @@ no `renovate.json` on purpose: none of them has a manifest, lockfile or workflow
 for Renovate to manage, so onboarding them would add an empty Dependency Dashboard
 and nothing else. Add the standard `renovate.json` above the moment one of them
 grows a real dependency.
+
+## Proving a change before you land it
+
+`renovate-config-validator` checks the schema and nothing else. It passes a
+`packageRules` entry that matches nothing, and it passes one that quietly captures
+a dependency you never meant to touch — both are well-formed. Since every repo in
+the org extends this file, a rule that misfires misfires everywhere at once, so
+try it against a real dependency tree before merging.
+
+Renovate will do a lookup run entirely offline from GitHub. Give it a scratch
+directory containing the manifest you care about — for a Gradle repo that is
+`gradle/libs.versions.toml` — and a `renovate.json` that is a copy of
+`default.json` with two edits: add `"enabledManagers": ["gradle"]`, and add the
+rule you are testing.
+
+```bash
+mkdir /tmp/renovate-try && cd /tmp/renovate-try
+cp <the repo>/gradle/libs.versions.toml .
+cp <this repo>/default.json renovate.json
+# then edit renovate.json: add "enabledManagers": ["gradle"], plus the rule under test
+LOG_LEVEL=debug LOG_FORMAT=json npx --yes renovate@latest --platform=local
+```
+
+Copying `default.json` *is* the point: the real repo's `renovate.json` is just the
+one-line `local>tractat-us/renovate-config` extends, and the local platform cannot
+fetch a `local>` preset. Standing this file in its place is what makes the run
+represent what the repo actually gets.
+
+About fifteen seconds once npx has cached the download, and no token — Maven
+Central and the Gradle plugin portal are both anonymous. The `packageFiles with
+updates` record names each update's `branchName`, which already shows you what
+got grouped with what. For the decision behind a branch, rerun at
+`LOG_LEVEL=trace` and find the `generateBranchConfig` records: each carries that
+branch's `groupName`, `automerge`, `dependencyDashboardApproval` and the full list
+of `upgrades` it swept in. Redirect trace to a file — it runs to a few hundred MB.
+
+Three things that otherwise waste an afternoon:
+
+- **Exit 1 does not mean the run failed.** On current Node the "Unsupported node
+  environment" logger error sets the exit code on an otherwise complete run. Look
+  for `Repository finished` in the log instead of trusting `$?`.
+- **A dependency already at its newest version produces no update**, so no rule
+  matches it and you learn nothing. Pin it one version back in the scratch
+  catalog so there is something to upgrade.
+- **Run `main`'s `default.json` the same way as a control.** What you want is the
+  difference between the two runs, not either one read on its own.
+
+### ⚠ A `groupName` equal to a version-catalog `version.ref` absorbs it
+
+Renovate uses a shared version variable's name as the default group for every
+dependency that points at it. In a Gradle version catalog, all the entries
+carrying `version.ref = "ktlint"` are therefore already in a group called
+`ktlint` before any rule here runs — so a rule written as `groupName: "ktlint"`
+merged with them, and swept in the ktlint-gradle plugin that no matcher in the
+rule mentioned. The combined branch then took this preset's `automerge: true`,
+and an update meant to wait for dashboard approval would have landed on its own.
+
+Nothing flagged it. The config validated, the rule read correctly, and the
+grouping was only visible in a local dry run (fireworks-compose PR #5145, second
+revision). The fix was to rename the group to `ktlint-runtime` — a name no
+version variable in that catalog uses, which is the only property that matters.
+
+That collision is worth the fifteen seconds on its own. Every repo extending this
+preset inherits the auto-merge policy above, so a `groupName` that lands on a
+catalog variable does not merely mis-group a PR — it promotes a dependency into
+auto-merge in whichever repo trips over it.
